@@ -1,0 +1,937 @@
+Program.Sub.ScreenSU.Start
+Gui.F_Proj..Create
+Gui.F_Proj..Caption("Project Shipping Packing List")
+Gui.F_Proj..Size(20610,13365)
+Gui.F_Proj..MinX(5000)
+Gui.F_Proj..MinY(5000)
+Gui.F_Proj..Position(0,0)
+Gui.F_Proj..BackColor(-2147483633)
+Gui.F_Proj..MousePointer(0)
+Gui.F_Proj..Event(UnLoad,Unload)
+Gui.F_Proj.gsgcShips.Create(GsGridControl)
+Gui.F_Proj.gsgcShips.Size(20205,9120)
+Gui.F_Proj.gsgcShips.Position(150,1350)
+Gui.F_Proj.gsgcShips.Anchor(15)
+Gui.F_Proj.lblCust.Create(Label,"Label",True,6060,255,0,225,765,True,0,"Arial",10,-2147483633,0)
+Gui.F_Proj.lblProj.Create(Label,"Label",True,5595,255,0,225,1065,True,0,"Arial",10,-2147483633,0)
+Gui.F_Proj.lblComp.Create(Label,"CRAVO EQUIPMENT LTD",True,2820,255,0,225,165,True,0,"Arial",10,-2147483633,0)
+Gui.F_Proj.lblComp2.Create(Label,"1-519-759-8226 ext 236",True,2820,255,0,225,450,True,0,"Arial",10,-2147483633,0)
+Gui.F_Proj.gsgcKey.Create(GsGridControl)
+Gui.F_Proj.gsgcKey.Size(8910,2040)
+Gui.F_Proj.gsgcKey.Position(150,10710)
+Gui.F_Proj.gsgcKey.Anchor(6)
+Gui.F_Proj.cmdExport.Create(Button)
+Gui.F_Proj.cmdExport.Size(1875,405)
+Gui.F_Proj.cmdExport.Position(18345,10620)
+Gui.F_Proj.cmdExport.Caption("Export to Excel")
+Gui.F_Proj.cmdExport.Event(Click,ExportGrid)
+Gui.F_Proj.cmdExport.Anchor(10)
+Gui.F_Proj.cmdPrint.Create(Button)
+Gui.F_Proj.cmdPrint.Size(1875,405)
+Gui.F_Proj.cmdPrint.Position(18345,11115)
+Gui.F_Proj.cmdPrint.Caption("Print")
+Gui.F_Proj.cmdPrint.Event(Click,PDFExport)
+Gui.F_Proj.cmdPrint.Anchor(10)
+Program.Sub.ScreenSU.End
+
+Program.Sub.Preflight.Start
+V.Global.sOrderNo.Declare(String, "")
+V.Global.iTotalShipments.Declare(Long, 0)
+Program.Sub.Preflight.End
+
+Program.Sub.Main.Start
+'Customer: Cravo
+'Developer: FEQ (Sisco)
+'Date: 12/04/2020
+'This is a dashboard that will display all of the shipments in a project (Sales Order)
+'The user will be prompted to select a project number, and the program will grab all orders associated with the project and display the shipments.
+'The columns of the dashboard will be Part Number, Rev, Order Qty, Part Description, *Quantity in Crate for shipment, *Crate # for shipment. 
+'The shipment info will have as many different shipments as there have been, according to the container number.
+
+'03/23/2021 Updating project to pull in more info and add a crystal report so they can print to PDF
+
+F.Intrinsic.Control.Try
+V.Local.sProject.Declare(String, "")
+
+'We are going to be browsing for a sales order, not a project number. The customer refers to the Sales Order number as teh Project number, we learned halfway through development ...
+F.Intrinsic.Control.CallSub(SalesOrderBrowser)
+
+F.Intrinsic.Control.Catch
+F.Intrinsic.Control.CallSub(Error, "Subroutine", V.Ambient.CurrentSubroutine, "ErrorDesc", V.Ambient.ErrorDescription, "ErrorNo", V.Ambient.ErrorNumber)
+F.Intrinsic.Control.EndTry
+Program.Sub.Main.End
+
+Program.Sub.Error.Start
+F.Intrinsic.Control.Try
+V.Local.sError.Declare(String, "")
+
+F.Intrinsic.String.Build("Project: {0}{1}{1}Subroutine: {2}{1}Error Occurred {3} with description {4}{1}{1}GAB Version: {5}", V.Caller.ScriptFile, V.Ambient.Newline, V.Args.Subroutine, V.Args.ErrorNo, V.Args.ErrorDesc, V.Ambient.GABVersion, V.Local.sError)
+
+F.Intrinsic.UI.CloseWaitDialog
+
+F.Intrinsic.UI.Msgbox(V.Local.sError, "CRITICAL ERROR")
+
+F.Intrinsic.Control.End
+
+F.Intrinsic.Control.Catch
+F.Intrinsic.Control.End
+F.Intrinsic.Control.EndTry
+Program.Sub.Error.End
+
+Program.Sub.Unload.Start
+F.Intrinsic.Control.Try
+
+F.Intrinsic.Control.End
+
+F.Intrinsic.Control.Catch
+F.Intrinsic.Control.CallSub(Error, "Subroutine", V.Ambient.CurrentSubroutine, "ErrorDesc", V.Ambient.ErrorDescription, "ErrorNo", V.Ambient.ErrorNumber)
+F.Intrinsic.Control.EndTry
+Program.Sub.Unload.End
+
+Program.Sub.GatherData.Start
+Program.Sub.GatherData.End
+
+Program.Sub.SalesOrderBrowser.Start
+F.Intrinsic.Control.Try
+V.Local.sBasis.Declare(String, "")
+V.Local.sTitles.Declare(String, "")
+V.Local.sReturn.Declare(String, "")
+V.Local.iWidths.Declare(Long, 0)
+
+F.ODBC.Connection!conx.OpenCompanyConnection
+
+'We need to build our own browser
+V.Local.sBasis.Set("Select OH.ORDER_NO, OH.CUSTOMER, OH.DATE_ORDER, OH.CUSTOMER_PO from V_ORDER_HEADER OH order by ORDER_NO")
+F.Intrinsic.String.Split("Project*!*Customer*!*Order Date*!*Customer PO", "*!*", V.Local.sTitles)
+F.Intrinsic.String.Split("1000*!*1000*!*1000*!*1000", "*!*", V.Local.iWidths)
+
+F.Intrinsic.UI.Browser("Sales Order Browser", "conx", V.Local.sBasis, V.Local.sTitles, V.Local.iWidths, V.Local.sReturn)
+
+F.ODBC.Connection!conx.Close
+
+F.Intrinsic.Control.If(V.Local.sReturn, <>, "***CANCEL***")
+	'We can proceed with the data gathering
+	F.Intrinsic.Control.CallSub(GatherBOLinfo, "SOINFO", V.Local.sReturn)
+	
+F.Intrinsic.Control.EndIf
+
+F.Intrinsic.Control.Catch
+F.Intrinsic.Control.CallSub(Error, "Subroutine", V.Ambient.CurrentSubroutine, "ErrorDesc", V.Ambient.ErrorDescription, "ErrorNo", V.Ambient.ErrorNumber)
+F.Intrinsic.Control.EndTry
+Program.Sub.SalesOrderBrowser.End
+
+Program.Sub.GatherSOData.Start
+Program.Sub.GatherSOData.End
+
+Program.Sub.SOGridProp.Start
+F.Intrinsic.Control.Try
+V.Local.sCol1.Declare(String, "")
+V.Local.sCap1.Declare(String, "")
+V.Local.sCol2.Declare(String, "")
+V.Local.sCap2.Declare(String, "")
+V.Local.sShip.Declare(String, "")
+V.Local.sCont.Declare(String, "")
+V.Local.sTemp.Declare(String, "")
+V.Local.iShip.Declare(Long, 0)
+V.Local.iIndex.Declare(Long, 0)
+
+'The main grid
+Gui.F_Proj.gsgcShips.AddGridviewFromDatatable("gridSOShip", "dtDisplay")
+
+Gui.F_Proj.gsgcShips.SetGridviewProperty("gridSOShip", "MultiSelect", False)
+Gui.F_Proj.gsgcShips.SetGridviewProperty("gridSOShip", "AllowSort", False)
+Gui.F_Proj.gsgcShips.SetGridviewProperty("gridSOShip", "AllowFilter", False)
+Gui.F_Proj.gsgcShips.SetGridviewProperty("gridSOShip", "OptionsViewColumnAutoWidth", False)
+Gui.F_Proj.gsgcShips.SetGridviewProperty("gridSOShip", "OptionsFindAlwaysVisible", False)
+Gui.F_Proj.gsgcShips.SetGridviewProperty("gridSOShip", "OptionsViewShowAutoFilterRow", False)
+Gui.F_Proj.gsgcShips.SetGridviewProperty("gridSOShip", "ColumnPanelRowHeight", 65)
+Gui.F_Proj.gsgcShips.SetGridviewProperty("gridSOShip", "OptionsViewRowAutoHeight", True)
+
+Gui.F_Proj.gsgcShips.SetColumnProperty("gridSOShip", "FULLPART", "Visible", False)
+Gui.F_Proj.gsgcShips.SetColumnProperty("gridSOShip", "LOSTCRATE", "Visible", False)
+Gui.F_Proj.gsgcShips.SetColumnProperty("gridSOShip", "LOSTQTY", "Visible", False)
+Gui.F_Proj.gsgcShips.SetColumnProperty("gridSOShip", "PART_SEQ", "Visible", False)
+
+Gui.F_Proj.gsgcShips.SetColumnProperty("gridSOShip", "PART", "Caption", "Part Number")
+Gui.F_Proj.gsgcShips.SetColumnProperty("gridSOShip", "REV", "Caption", "Revision")
+Gui.F_Proj.gsgcShips.SetColumnProperty("gridSOShip", "TOTAL_QTY", "Caption", "Order Qty")
+Gui.F_Proj.gsgcShips.SetColumnProperty("gridSOShip", "DESCR", "Caption", "Part Description")
+F.Intrinsic.String.Build("Balance{0}To Ship", V.Ambient.NewLine, V.Local.sTemp)
+Gui.F_Proj.gsgcShips.SetColumnProperty("gridSOShip", "BAL_TO_SHIP", "Caption", V.Local.sTemp)
+
+Gui.F_Proj.gsgcShips.SetColumnProperty("gridSOShip", "PART", "HeaderFontBold", True)
+Gui.F_Proj.gsgcShips.SetColumnProperty("gridSOShip", "REV", "HeaderFontBold", True)
+Gui.F_Proj.gsgcShips.SetColumnProperty("gridSOShip", "TOTAL_QTY", "HeaderFontBold", True)
+Gui.F_Proj.gsgcShips.SetColumnProperty("gridSOShip", "DESCR", "HeaderFontBold", True)
+Gui.F_Proj.gsgcShips.SetColumnProperty("gridSOShip", "BAL_TO_SHIP", "HeaderFontBold", True)
+
+Gui.F_Proj.gsgcShips.SetColumnProperty("gridSOShip", "PART", "MinWidth", 50)
+Gui.F_Proj.gsgcShips.SetColumnProperty("gridSOShip", "REV", "MinWidth", 40)
+Gui.F_Proj.gsgcShips.SetColumnProperty("gridSOShip", "TOTAL_QTY", "MinWidth", 30)
+Gui.F_Proj.gsgcShips.SetColumnProperty("gridSOShip", "DESCR", "MinWidth", 100)
+Gui.F_Proj.gsgcShips.SetColumnProperty("gridSOShip", "BAL_TO_SHIP", "MinWidth", 30)
+
+Gui.F_Proj.gsgcShips.SetColumnProperty("gridSOShip", "PART", "Width", 125)
+Gui.F_Proj.gsgcShips.SetColumnProperty("gridSOShip", "REV", "Width", 60)
+Gui.F_Proj.gsgcShips.SetColumnProperty("gridSOShip", "TOTAL_QTY", "Width", 70)
+Gui.F_Proj.gsgcShips.SetColumnProperty("gridSOShip", "DESCR", "Width", 300)
+Gui.F_Proj.gsgcShips.SetColumnProperty("gridSOShip", "BAL_TO_SHIP", "Width", 70)
+
+Gui.F_Proj.gsgcShips.SetColumnProperty("gridSOShip", "PART", "ReadOnly", True)
+Gui.F_Proj.gsgcShips.SetColumnProperty("gridSOShip", "REV", "ReadOnly", True)
+Gui.F_Proj.gsgcShips.SetColumnProperty("gridSOShip", "TOTAL_QTY", "ReadOnly", True)
+Gui.F_Proj.gsgcShips.SetColumnProperty("gridSOShip", "DESCR", "ReadOnly", True)
+Gui.F_Proj.gsgcShips.SetColumnProperty("gridSOShip", "BAL_TO_SHIP", "ReadOnly", True)
+
+Gui.F_Proj.gsgcShips.SetColumnProperty("gridSOShip", "PART", "AllowEdit", False)
+Gui.F_Proj.gsgcShips.SetColumnProperty("gridSOShip", "REV", "AllowEdit", False)
+Gui.F_Proj.gsgcShips.SetColumnProperty("gridSOShip", "TOTAL_QTY", "AllowEdit", False)
+Gui.F_Proj.gsgcShips.SetColumnProperty("gridSOShip", "DESCR", "AllowEdit", False)
+Gui.F_Proj.gsgcShips.SetColumnProperty("gridSOShip", "BAL_TO_SHIP", "AllowEdit", False)
+
+Gui.F_Proj.gsgcShips.SetColumnProperty("gridSOShip", "PART", "VisibleIndex", 1)
+Gui.F_Proj.gsgcShips.SetColumnProperty("gridSOShip", "REV", "VisibleIndex", 2)
+Gui.F_Proj.gsgcShips.SetColumnProperty("gridSOShip", "TOTAL_QTY", "VisibleIndex", 3)
+Gui.F_Proj.gsgcShips.SetColumnProperty("gridSOShip", "DESCR", "VisibleIndex", 4)
+
+Gui.F_Proj.gsgcShips.SetColumnProperty("gridSOShip", "PART", "Fixed", "left")
+Gui.F_Proj.gsgcShips.SetColumnProperty("gridSOShip", "REV", "Fixed", "left")
+Gui.F_Proj.gsgcShips.SetColumnProperty("gridSOShip", "TOTAL_QTY", "Fixed", "left")
+Gui.F_Proj.gsgcShips.SetColumnProperty("gridSOShip", "DESCR", "Fixed", "left")
+
+V.Local.iIndex.Set(4)
+
+F.Intrinsic.Control.For(V.Local.iShip, 0, V.DataView.dtCols!dvNoBlank.RowCount--, 1)
+	
+	V.Local.sShip.Set(V.DataView.dtCols!dvNoBlank(V.Local.iShip).ROW_NO!FieldValTrim)
+	V.Local.sCont.Set(V.DataView.dtCols!dvNoBlank(V.Local.iShip).CONTAINER!FieldValTrim)
+	
+	F.Intrinsic.String.Build("{0}-qty", V.Local.sShip.Trim, V.Local.sCol1)
+	F.Intrinsic.String.Build("{0}-crate", V.Local.sShip.Trim, V.Local.sCol2)
+	
+'	F.Intrinsic.Math.Add(V.Local.iShip, 1, V.Local.sShip)
+	F.Intrinsic.String.Build("# {0}{1}Container{1}{2}{1}Part Qty", V.Local.sShip.Trim, V.Ambient.NewLine, V.Local.sCont, V.Local.sCap1)
+	F.Intrinsic.String.Build("# {0}{1}Container{1}{2}{1}Crate #", V.Local.sShip.Trim, V.Ambient.NewLine, V.Local.sCont, V.Local.sCap2)
+	
+	Gui.F_Proj.gsgcShips.SetColumnProperty("gridSOShip", V.Local.sCol1, "Caption", V.Local.sCap1)
+	Gui.F_Proj.gsgcShips.SetColumnProperty("gridSOShip", V.Local.sCol2, "Caption", V.Local.sCap2)
+	
+	Gui.F_Proj.gsgcShips.SetColumnProperty("gridSOShip", V.Local.sCol1, "HeaderFontBold", True)
+	Gui.F_Proj.gsgcShips.SetColumnProperty("gridSOShip", V.Local.sCol2, "HeaderFontBold", True)
+	
+	Gui.F_Proj.gsgcShips.SetColumnProperty("gridSOShip", V.Local.sCol1, "HeaderWordWrap", "Wrap")
+	Gui.F_Proj.gsgcShips.SetColumnProperty("gridSOShip", V.Local.sCol2, "HeaderWordWrap", "Wrap")
+		
+	Gui.F_Proj.gsgcShips.SetColumnProperty("gridSOShip", V.Local.sCol1, "MinWidth", 30)
+	Gui.F_Proj.gsgcShips.SetColumnProperty("gridSOShip", V.Local.sCol2, "MinWidth", 50)
+	
+	Gui.F_Proj.gsgcShips.SetColumnProperty("gridSOShip", V.Local.sCol1, "Width", 70)
+	Gui.F_Proj.gsgcShips.SetColumnProperty("gridSOShip", V.Local.sCol2, "Width", 100)
+	
+	Gui.F_Proj.gsgcShips.SetColumnProperty("gridSOShip", V.Local.sCol1, "ReadOnly", True)
+	Gui.F_Proj.gsgcShips.SetColumnProperty("gridSOShip", V.Local.sCol2, "ReadOnly", True)
+	
+	Gui.F_Proj.gsgcShips.SetColumnProperty("gridSOShip", V.Local.sCol1, "AllowEdit", False)
+	Gui.F_Proj.gsgcShips.SetColumnProperty("gridSOShip", V.Local.sCol2, "AllowEdit", False)
+	
+	F.Intrinsic.Math.Add(V.Local.iIndex, 1, V.Local.iIndex)
+	Gui.F_Proj.gsgcShips.SetColumnProperty("gridSOShip", V.Local.sCol1, "VisibleIndex", V.Local.iIndex)
+	F.Intrinsic.Math.Add(V.Local.iIndex, 1, V.Local.iIndex)
+	Gui.F_Proj.gsgcShips.SetColumnProperty("gridSOShip", V.Local.sCol2, "VisibleIndex", V.Local.iIndex)
+
+F.Intrinsic.Control.Next(V.Local.iShip)
+
+F.Intrinsic.Math.Add(V.Local.iIndex, 1, V.Local.iIndex)
+Gui.F_Proj.gsgcShips.SetColumnProperty("gridSOShip", "BAL_TO_SHIP", "VisibleIndex", V.Local.iIndex)
+
+Gui.F_Proj.gsgcShips.MainView("gridSOShip")
+
+'Now for the key
+Gui.F_Proj.gsgcKey.AddGridviewFromDatatable("gridKey", "dtKey")
+
+Gui.F_Proj.gsgcKey.SetGridviewProperty("gridKey", "MultiSelect", False)
+Gui.F_Proj.gsgcKey.SetGridviewProperty("gridKey", "AllowSort", False)
+Gui.F_Proj.gsgcKey.SetGridviewProperty("gridKey", "AllowFilter", False)
+Gui.F_Proj.gsgcKey.SetGridviewProperty("gridKey", "OptionsViewColumnAutoWidth", False)
+Gui.F_Proj.gsgcKey.SetGridviewProperty("gridKey", "OptionsFindAlwaysVisible", False)
+Gui.F_Proj.gsgcKey.SetGridviewProperty("gridKey", "OptionsViewShowAutoFilterRow", False)
+
+Gui.F_Proj.gsgcKey.SetColumnProperty("gridKey", "SHIP_NO", "Visible", False)
+Gui.F_Proj.gsgcKey.SetColumnProperty("gridKey", "BOL_Date", "Visible", False)
+
+Gui.F_Proj.gsgcKey.SetColumnProperty("gridKey", "SHIP_NAME", "Caption", "Shipment Number")
+Gui.F_Proj.gsgcKey.SetColumnProperty("gridKey", "BOL_Format_Date", "Caption", "BOL Date")
+Gui.F_Proj.gsgcKey.SetColumnProperty("gridKey", "BOL_NO", "Caption", "BOL #")
+Gui.F_Proj.gsgcKey.SetColumnProperty("gridKey", "CARRIER_CODE", "Caption", "Carrier")
+Gui.F_Proj.gsgcKey.SetColumnProperty("gridKey", "CONTAINER_NO", "Caption", "Container #")
+Gui.F_Proj.gsgcKey.SetColumnProperty("gridKey", "TRACKING_NO", "Caption", "Tracking #")
+
+Gui.F_Proj.gsgcKey.SetColumnProperty("gridKey", "SHIP_NAME", "HeaderFontBold", True)
+Gui.F_Proj.gsgcKey.SetColumnProperty("gridKey", "BOL_Format_Date", "HeaderFontBold", True)
+Gui.F_Proj.gsgcKey.SetColumnProperty("gridKey", "BOL_NO", "HeaderFontBold", True)
+Gui.F_Proj.gsgcKey.SetColumnProperty("gridKey", "CARRIER_CODE", "HeaderFontBold", True)
+Gui.F_Proj.gsgcKey.SetColumnProperty("gridKey", "CONTAINER_NO", "HeaderFontBold", True)
+Gui.F_Proj.gsgcKey.SetColumnProperty("gridKey", "TRACKING_NO", "HeaderFontBold", True)
+
+Gui.F_Proj.gsgcKey.SetColumnProperty("gridKey", "SHIP_NAME", "MinWidth", 100)
+Gui.F_Proj.gsgcKey.SetColumnProperty("gridKey", "BOL_Format_Date", "MinWidth", 100)
+Gui.F_Proj.gsgcKey.SetColumnProperty("gridKey", "BOL_NO", "MinWidth", 100)
+Gui.F_Proj.gsgcKey.SetColumnProperty("gridKey", "CARRIER_CODE", "MinWidth", 100)
+Gui.F_Proj.gsgcKey.SetColumnProperty("gridKey", "CONTAINER_NO", "MinWidth", 100)
+Gui.F_Proj.gsgcKey.SetColumnProperty("gridKey", "TRACKING_NO", "MinWidth", 100)
+
+Gui.F_Proj.gsgcKey.SetColumnProperty("gridKey", "SHIP_NAME", "Width", 150)
+Gui.F_Proj.gsgcKey.SetColumnProperty("gridKey", "BOL_Format_Date", "Width", 150)
+Gui.F_Proj.gsgcKey.SetColumnProperty("gridKey", "BOL_NO", "Width", 300)
+Gui.F_Proj.gsgcKey.SetColumnProperty("gridKey", "CARRIER_CODE", "Width", 150)
+Gui.F_Proj.gsgcKey.SetColumnProperty("gridKey", "CONTAINER_NO", "Width", 150)
+Gui.F_Proj.gsgcKey.SetColumnProperty("gridKey", "TRACKING_NO", "Width", 300)
+
+Gui.F_Proj.gsgcKey.SetColumnProperty("gridKey", "SHIP_NAME", "ReadOnly", True)
+Gui.F_Proj.gsgcKey.SetColumnProperty("gridKey", "BOL_Format_Date", "ReadOnly", True)
+Gui.F_Proj.gsgcKey.SetColumnProperty("gridKey", "BOL_NO", "ReadOnly", True)
+Gui.F_Proj.gsgcKey.SetColumnProperty("gridKey", "CARRIER_CODE", "ReadOnly", True)
+Gui.F_Proj.gsgcKey.SetColumnProperty("gridKey", "CONTAINER_NO", "ReadOnly", True)
+Gui.F_Proj.gsgcKey.SetColumnProperty("gridKey", "TRACKING_NO", "ReadOnly", True)
+
+Gui.F_Proj.gsgcKey.SetColumnProperty("gridKey", "SHIP_NAME", "AllowEdit", False)
+Gui.F_Proj.gsgcKey.SetColumnProperty("gridKey", "BOL_Format_Date", "AllowEdit", False)
+Gui.F_Proj.gsgcKey.SetColumnProperty("gridKey", "BOL_NO", "AllowEdit", False)
+Gui.F_Proj.gsgcKey.SetColumnProperty("gridKey", "CARRIER_CODE", "AllowEdit", False)
+Gui.F_Proj.gsgcKey.SetColumnProperty("gridKey", "CONTAINER_NO", "AllowEdit", False)
+Gui.F_Proj.gsgcKey.SetColumnProperty("gridKey", "TRACKING_NO", "AllowEdit", False)
+
+Gui.F_Proj.gsgcKey.MainView("gridKey")
+
+F.Intrinsic.Control.Catch
+F.Intrinsic.Control.CallSub(Error, "Subroutine", V.Ambient.CurrentSubroutine, "ErrorDesc", V.Ambient.ErrorDescription, "ErrorNo", V.Ambient.ErrorNumber)
+F.Intrinsic.Control.EndTry
+Program.Sub.SOGridProp.End
+
+Program.Sub.ExportGrid.Start
+F.Intrinsic.Control.Try
+V.Local.sError.Declare(String, "")
+V.Local.sFile.Declare(String, "")
+V.Local.sTemp.Declare(String, "")
+
+F.Intrinsic.UI.ShowSaveFileDialog("", "xlsx", "CustomerExport.xlsx", "Customer Master Export", V.Local.sFile)
+
+'If there is a return, we will export the data into the file selected.
+F.Intrinsic.Control.If(V.Local.sFile, =, "***CANCEL***")
+	F.Intrinsic.Control.ExitSub
+F.Intrinsic.Control.ElseIf(V.Local.sFile.Trim, =, "")
+	F.Intrinsic.String.Build("{0}\Project Shipments.xlsx", V.Caller.FilesDir, V.Local.sFile)
+F.Intrinsic.Control.Else
+	F.Intrinsic.String.Split(V.Local.sFile, ".", V.Local.sTemp)
+	F.Intrinsic.Control.If(V.Local.sTemp(V.Local.sTemp.UBound).UCase, <>, "XLSX")
+		F.Intrinsic.String.Build("{0}.xlsx", V.Local.sFile, V.Local.sFile)
+	F.Intrinsic.Control.EndIf
+F.Intrinsic.Control.EndIf
+
+Gui.F_Proj.gsgcShips.Export(V.Local.sFile, "XLSX")
+
+'TESTING THE PDF EXPORT NATIVE TO THE GRID
+'F.Intrinsic.UI.ShowSaveFileDialog("", "pdf", "CustomerExport.pdf", "Shipment Lines Export", V.Local.sFile)
+'F.Intrinsic.Control.If(V.Local.sFile, =, "***CANCEL***")
+'	F.Intrinsic.Control.ExitSub
+'F.Intrinsic.Control.ElseIf(V.Local.sFile.Trim, =, "")
+'	F.Intrinsic.String.Build("{0}\Project Shipments.pdf", V.Caller.FilesDir, V.Local.sFile)
+'F.Intrinsic.Control.Else
+'	F.Intrinsic.String.Split(V.Local.sFile, ".", V.Local.sTemp)
+'	F.Intrinsic.Control.If(V.Local.sTemp(V.Local.sTemp.UBound).UCase, <>, "PDF")
+'		F.Intrinsic.String.Build("{0}.pdf", V.Local.sFile, V.Local.sFile)
+'	F.Intrinsic.Control.EndIf
+'F.Intrinsic.Control.EndIf
+'Gui.F_Proj.gsgcShips.Export(V.Local.sFile, "pdf")
+
+
+F.Intrinsic.String.Build("Order Shipment information from the grid has been exported to:{0}{0}{1}{0}", V.Ambient.NewLine, V.Local.sFile, V.Local.sTemp)
+F.Intrinsic.UI.Msgbox(V.Local.sTemp, "EXPORT SUCCESS")
+
+F.Intrinsic.Control.Catch
+
+F.Intrinsic.String.Build("Project: {0}{1}{1}Subroutine: {2}{1}Error Occurred {3} with description {4}{1}{1}GAB Version: {5}", V.Ambient.ScriptPath, V.Ambient.Newline, V.Ambient.CurrentSubroutine, V.Ambient.ErrorNumber, V.Ambient.ErrorDescription, V.Ambient.GABVersion, V.Local.sError)
+F.Intrinsic.UI.Msgbox(V.Local.sError)
+
+F.Intrinsic.Control.EndTry
+Program.Sub.ExportGrid.End
+
+Program.Sub.GatherBOLinfo.Start
+F.Intrinsic.Control.Try
+V.Local.sTemp.Declare(String, "")
+V.Local.sOrder.Declare(String, "")
+V.Local.sCustomer.Declare(String, "")
+V.Local.sDateOrder.Declare(String, "")
+V.Local.sCustPO.Declare(String, "")
+V.Local.sSql.Declare(String, "")
+V.Local.sColumnQTY.Declare(String, "")
+V.Local.sColumnCRATE.Declare(String, "")
+V.Local.sPart.Declare(String, "")
+V.Local.sRev.Declare(String, "")
+V.Local.sDesc.Declare(String, "")
+V.Local.sFilter.Declare(String, "")
+V.Local.sShip.Declare(String, "")
+V.Local.sDateShip.Declare(String, "")
+V.Local.sCaption.Declare(String, "")
+V.Local.sCrate.Declare(String, "")
+V.Local.sPack.Declare(String, "")
+V.Local.sContainer.Declare(String, "")
+V.Local.sRowNo.Declare(String, "")
+V.Local.sShipCont.Declare(String, "")
+V.Local.sWaybill.Declare(String, "")
+V.Local.sCarrier.Declare(String, "")
+V.Local.sTracking.Declare(String, "")
+V.Local.dShipDate.Declare(Date, "01/01/2000")
+V.Local.fTtlQty.Declare(Float, 0.0)
+V.Local.fTtlShipped.Declare(Float, 0.0)
+V.Local.fNeedsShip.Declare(Float, 0.0)
+V.Local.iShip.Declare(Long, 0)
+V.Local.iParts.Declare(Long, 0)
+V.Local.iRow.Declare(Long, 0)
+V.Local.iMax.Declare(Long, 0)
+V.Local.iSequence.Declare(Long, 0)
+V.Local.bCheck.Declare(Boolean, False)
+
+'We are going to be receiving the SO number from the previous subroutine in the SOINFO arg
+F.Intrinsic.String.Split(V.Args.SOINFO, "*!*", V.Local.sTemp)
+
+V.Local.sTemp.RedimPreserve(0, 3)
+
+V.Local.sOrder.Set(V.Local.sTemp(0).Trim)
+V.Global.sOrderNo.Set(V.Local.sOrder.Trim)
+V.Local.sCustomer.Set(V.Local.sTemp(1).Trim)
+V.Local.sDateOrder.Set(V.Local.sTemp(2).Trim)
+V.Local.sCustPO.Set(V.Local.sTemp(3).Trim)
+
+F.ODBC.Connection!conx.OpenCompanyConnection
+
+'Get and fill in the header information:
+V.Local.sTemp.Redim(0,0)
+F.Intrinsic.String.Build("Select TOP 1 NAME_CUSTOMER, Country from V_CUSTOMER_MASTER where CUSTOMER = '{0}'", V.Local.sCustomer, V.Local.sSql)
+F.ODBC.Connection!conx.ExecuteAndReturn(V.Local.sSql, V.Local.sTemp)
+
+F.Intrinsic.String.Replace(V.Local.sTemp, "*!*", ", ", V.Local.sCaption)
+Gui.F_Proj.lblCust.Text(V.Local.sCaption.UCase)
+
+F.Intrinsic.String.Build("ORDER No. {0}", V.Local.sOrder, V.Local.sCaption)
+Gui.F_Proj.lblProj.Text(V.Local.sCaption)
+
+'Get the Order Lines info
+F.Intrinsic.String.Build("Select ORDER_NO, RECORD_NO, PART, QTY_ORDERED, QTY_SHIPPED from V_ORDER_LINES where ORDER_NO = '{0}' and PART <> '{0}'", V.Local.sOrder, V.Local.sSql)
+F.Data.DataTable.CreateFromSQL("dtSOLns", "conx", V.Local.sSql, True)
+
+'Get the info from history tables
+F.Intrinsic.String.Build("Select ORDER_NO, ORDER_LINE as RECORD_NO, PART, QTY_ORDERED, QTY_SHIPPED from V_ORDER_HIST_LINE where ORDER_NO = '{0}' and PART <> '{0}'", V.Local.sOrder, V.Local.sSql)
+F.Data.DataTable.CreateFromSQL("dtLnsHist", "conx", V.Local.sSql, True)
+
+F.Data.DataTable.Merge("dtLnsHist", "dtSOLns", True, 1)
+
+F.Data.DataView.Create("dtSOLns", "dvForPNOS", 22, "[RECORD_NO] < '6000'", "PART ASC")
+F.Data.DataView.ToDataTableDistinct("dtSOLns", "dvForPNOS", "dtByParts", "PART", True)
+
+'Now lets get the needed info for the parts.. Description 1 and 2..
+F.Data.DataTable.AddColumn("dtByParts", "DESCR1", "String")
+F.Data.Dictionary.CreateFromSQL("dicDesc1", "conx", "Select PART, DESCRIPTION from V_INVENTORY_MSTR")
+F.Data.Dictionary.SetDefaultReturn("dicDesc1", "")
+F.Data.DataTable.FillFromDictionary("dtByParts", "dicDesc1", "PART", "DESCR1")
+F.Data.Dictionary.Close("dicDesc1")
+
+F.Data.DataTable.AddColumn("dtByParts", "DESCR2", "String")
+F.Data.Dictionary.CreateFromSQL("dicDesc2", "conx", "Select PART, DESCRIPTION_2 from V_INVENTORY_MST2")
+F.Data.Dictionary.SetDefaultReturn("dicDesc2", "")
+F.Data.DataTable.FillFromDictionary("dtByParts", "dicDesc2", "PART", "DESCR2")
+F.Data.Dictionary.Close("dicDesc2")
+
+F.Intrinsic.String.Build("Select ORDER_NO, ORDER_LINE, PCK_NO, PLLT_NO, SEQ, PART, QTY, WAYBILL_NO from V_BOL_PACK_DTL where ORDER_NO = '{0}'", V.Local.sOrder, V.Local.sSql)
+F.Data.DataTable.CreateFromSQL("dtPacks", "conx", V.Local.sSql, True)
+
+'Now we get the shipment information
+'The 'container number' and the 'crate number' are stored in the BOL_MASTER, fields TRAILER_NO and CID respectively
+F.Data.DataTable.CreateFromSQL("dtBOL", "conx", "SELECT distinct WAYBILL_NO, RTRIM(LTRIM(TRAILER_NO)) as TRAILER_NO, RTRIM(LTRIM(CID)) as CID, DATE1, RTRIM(LTRIM(CARRIER_CD)) as CARRIER, RTRIM(LTRIM(TRACKING_NO)) as TRACKING from V_BOL_HEADER", True)
+
+'*******************************************************************************************************************************************************************************
+'This was to test/create the PDV
+'F.Data.DataTable.SetValue("dtBOL", -1, "TRAILER_NO", "CNT 253")
+'*******************************************************************************************************************************************************************************
+
+F.Data.Dictionary.CreateFromDataTable("dicCont", "dtBOL", "WAYBILL_NO", "TRAILER_NO")
+F.Data.Dictionary.SetDefaultReturn("dicCont", "")
+F.Data.DataTable.AddColumn("dtPacks", "CONTAINER", "String")
+F.Data.DataTable.FillFromDictionary("dtPacks", "dicCont", "WAYBILL_NO", "CONTAINER")
+F.Data.Dictionary.Close("dicCont")
+
+F.Data.Dictionary.CreateFromDataTable("dicCID", "dtBOL", "WAYBILL_NO", "CID")
+F.Data.Dictionary.SetDefaultReturn("dicCID", "")
+F.Data.DataTable.AddColumn("dtPacks", "CID", "String")
+F.Data.DataTable.FillFromDictionary("dtPacks", "dicCID", "WAYBILL_NO", "CID")
+F.Data.Dictionary.Close("dicCID")
+
+F.Data.Dictionary.CreateFromDataTable("dicDate", "dtBOL", "WAYBILL_NO", "DATE1")
+F.Data.Dictionary.SetDefaultReturn("dicDate", "01/01/2000")
+F.Data.DataTable.AddColumn("dtPacks", "DATE1", "Date")
+F.Data.DataTable.FillFromDictionary("dtPacks", "dicDate", "WAYBILL_NO", "DATE1")
+F.Data.Dictionary.Close("dicDate")
+
+F.Data.Dictionary.CreateFromDataTable("dicCarr", "dtBOL", "WAYBILL_NO", "CARRIER")
+F.Data.Dictionary.SetDefaultReturn("dicCarr", "")
+F.Data.DataTable.AddColumn("dtPacks", "CARRIER", "String")
+F.Data.DataTable.FillFromDictionary("dtPacks", "dicCarr", "WAYBILL_NO", "CARRIER")
+F.Data.Dictionary.Close("dicCarr")
+
+F.Data.Dictionary.CreateFromDataTable("dicTrack", "dtBOL", "WAYBILL_NO", "TRACKING")
+F.Data.Dictionary.SetDefaultReturn("dicTrack", "")
+F.Data.DataTable.AddColumn("dtPacks", "TRACKING", "String")
+F.Data.DataTable.FillFromDictionary("dtPacks", "dicTrack", "WAYBILL_NO", "TRACKING")
+F.Data.Dictionary.Close("dicTrack")
+
+F.Data.DataTable.Close("dtBOL")
+
+F.Intrinsic.String.Build("Select WAYBILL_NO, PCK_NO, ORDER_SEQ from V_BOL_CO_INFO where ORDER_NO = '{0}'", V.Local.sOrder, V.Local.sSql)
+F.Data.DataTable.CreateFromSQL("dtCrates", "conx", V.Local.sSql, True)
+
+'the key to match the 'order_seq' (which is the crate) to the quantity, will be the waybill_no - Pck_no
+F.Data.DataTable.AddExpressionColumn("dtCrates", "KeyField", "String", "[WAYBILL_NO] + '-' + [PCK_NO]")
+F.Data.DataTable.AddExpressionColumn("dtPacks", "KeyField", "String", "[WAYBILL_NO] + '-' + [PCK_NO]")
+
+F.Data.Dictionary.CreateFromDataTable("dicCrate", "dtCrates", "KeyField", "ORDER_SEQ")
+F.Data.Dictionary.SetDefaultReturn("dicCrate", "")
+
+F.Data.DataTable.AddColumn("dtPacks", "CRATE", "String")
+F.Data.DataTable.FillFromDictionary("dtPacks", "dicCrate", "KeyField", "CRATE")
+
+'Let's create the datatables...
+'The table for the key grid:
+F.Data.DataTable.Create("dtKey", True)
+F.Data.DataTable.AddColumn("dtKey", "SHIP_NAME", "String")
+F.Data.DataTable.AddColumn("dtKey", "SHIP_NO", "Long")
+F.Data.DataTable.AddColumn("dtKey", "BOL_Date", "Date")
+F.Data.DataTable.AddColumn("dtKey", "BOL_Format_Date", "String")
+F.Data.DataTable.AddColumn("dtKey", "BOL_NO", "String")
+F.Data.DataTable.AddColumn("dtKey", "CARRIER_CODE", "String")
+F.Data.DataTable.AddColumn("dtKey", "CONTAINER_NO", "String")
+F.Data.DataTable.AddColumn("dtKey", "TRACKING_NO", "String")
+
+'The table that will be used to display will get tricky. Each unique 'Trailer number' will have two columns in the grid, one for quantity in the crate and another for crate number
+F.Data.DataTable.Create("dtDisplay", True)
+F.Data.DataTable.AddColumn("dtDisplay", "PART", "String")
+F.Data.DataTable.AddColumn("dtDisplay", "REV", "String")
+F.Data.DataTable.AddColumn("dtDisplay", "TOTAL_QTY", "String")
+F.Data.DataTable.AddColumn("dtDisplay", "DESCR", "String")
+F.Data.DataTable.AddColumn("dtDisplay", "PART_SEQ", "Long")
+'F.Data.DataTable.AddColumn("dtDisplay", "PART_ROW", "Long")
+
+F.Data.DataView.Create("dtPacks", "dvForCols", 22)
+
+'Now we need to make the tables for the key stuff..
+F.Data.Dictionary.CreateFromDataTable("dicShipDate", "dtPacks", "WAYBILL_NO", "DATE1")
+F.Data.Dictionary.SetDefaultReturn("dicShipDate", "01/01/2000")
+
+F.Data.DataView.ToDataTableDistinct("dtPacks", "dvForCols", "dtCols", "WAYBILL_NO*!*CONTAINER", True)
+F.Data.DataTable.AddColumn("dtCols", "DATE1", "Date")
+F.Data.DataTable.AddColumn("dtCols", "ROW_NO", "String")
+F.Data.DataTable.FillFromDictionary("dtCols", "dicShipDate", "WAYBILL_NO", "DATE1")
+
+F.Data.DataView.Create("dtCols", "dvNoBlank", 22, "", "DATE1 ASC")
+
+F.Intrinsic.Control.For(V.Local.iShip, 0, V.DataView.dtCols!dvNoBlank.RowCount--, 1)
+	
+	'We fill the key table
+	F.Intrinsic.Math.Add(V.Local.iShip, 1, V.Local.iRow)
+	F.Intrinsic.String.Build("#{0}", V.Local.iRow, V.Local.sShip)
+	
+'	V.Local.dShipDate.Set(V.Dictionary.dicShipDate![V.Local.sPack])
+'	V.Local.sShipCont.Set(V.Dictionary.dicContNo![V.Local.sPack])
+	
+	V.Local.sWaybill.Set(V.DataView.dtCols!dvNoBlank(V.Local.iShip).WAYBILL_NO!FieldValTrim)
+	V.Local.sPack.Set(V.DataView.dtCols!dvNoBlank(V.Local.iShip).CONTAINER!FieldValTrim)
+	V.Local.dShipDate.Set(V.DataView.dtCols!dvNoBlank(V.Local.iShip).DATE1!FieldVal)
+	
+	F.Intrinsic.Control.If(V.Local.dShipDate, =, "01/01/2000")
+		V.Local.sDateShip.Set("")
+	F.Intrinsic.Control.Else
+		F.Intrinsic.String.Format(V.Local.dShipDate, "Mmm Dd YYYY", V.Local.sDateShip)
+	F.Intrinsic.Control.EndIf
+	
+	'The information for the shipments is being stored in the dtPacks table
+	F.Intrinsic.String.Build("[WAYBILL_NO] = '{0}'", V.Local.sWaybill, V.Local.sFilter)
+	F.Data.DataView.Create("dtPacks", "dvWaybill", 22, V.Local.sFilter, "")
+	F.Intrinsic.Control.If(V.DataView.dtPacks!dvWaybill.RowCount, >, 0)
+		V.Local.sCarrier.Set(V.DataView.dtPacks!dvWaybill(0).CARRIER!FieldValTrim)
+		V.Local.sTracking.Set(V.DataView.dtPacks!dvWaybill(0).TRACKING!FieldValTrim)
+	F.Intrinsic.Control.Else
+		V.Local.sCarrier.Set("")
+		V.Local.sTracking.Set("")
+	F.Intrinsic.Control.EndIf
+	F.Data.DataView.Close("dtPacks", "dvWaybill")
+	
+	F.Data.DataTable.AddRow("dtKey", "SHIP_NAME", V.Local.sShip, "BOL_Format_Date", V.Local.sDateShip, "BOL_Date", V.Local.dShipDate, "BOL_NO", V.Local.sWaybill, "CARRIER_CODE", V.Local.sCarrier, "CONTAINER_NO", V.Local.sPack, "TRACKING_NO", V.Local.sTracking, "SHIP_NO", V.Local.iRow)
+	
+	'Create the columns for the shipments
+	F.Intrinsic.String.Build("{0}-qty", V.Local.iRow, V.Local.sColumnQTY)
+	F.Data.DataTable.AddColumn("dtDisplay", V.Local.sColumnQTY, "String")
+	F.Intrinsic.String.Build("{0}-crate", V.Local.iRow, V.Local.sColumnCRATE)
+	F.Data.DataTable.AddColumn("dtDisplay", V.Local.sColumnCRATE, "String")
+	
+	'Record the col number in container table to use to fill grid in the future
+	F.Data.DataView.SetValue("dtCols", "dvNoBlank", V.Local.iShip, "ROW_NO", V.Local.iRow)
+	
+F.Intrinsic.Control.Next(V.Local.iShip)
+
+F.Intrinsic.Math.Add(V.Local.iShip, -1, V.Local.iShip)
+
+V.Global.iTotalShipments.Set(V.Local.iShip)
+
+F.Data.DataTable.AddColumn("dtDisplay", "BAL_TO_SHIP", "String")
+F.Data.DataTable.AddColumn("dtDisplay", "FULLPART", "String")
+
+F.Data.DataTable.AddColumn("dtDisplay", "LOSTQTY", "String")
+F.Data.DataTable.AddColumn("dtDisplay", "LOSTCRATE", "String")
+
+F.Data.Dictionary.CreateFromDataView("dicCols", "dtCols", "dvNoBlank", "CONTAINER", "ROW_NO")
+F.Data.Dictionary.SetDefaultReturn("dicCols", "")
+
+F.Intrinsic.UI.InvokeWaitDialog("PLEASEWAIT")
+
+'Now that we have all the parts we are going to be looking into, we can make a loop and build the table for shipments
+F.Intrinsic.Control.For(V.Local.iParts, 0, V.DataTable.dtByParts.RowCount--, 1)
+	
+	V.Local.iMax.Set(0)
+	
+	F.Intrinsic.Control.If(V.Local.iParts, =, 43)
+'		Function.Intrinsic.Debug.InvokeDebugger
+'		Function.Intrinsic.Debug.Stop
+'		
+	F.Intrinsic.Control.EndIf
+	
+	F.Intrinsic.UI.ChangeWaitStatus(V.Local.iParts)
+	
+	'The very first row of each part is the only one that will have the total quantity and part description filled out. 
+	F.Intrinsic.String.Build("[PART] = '{0}'", V.DataTable.dtByParts(V.Local.iParts).PART!FieldValTrim, V.Local.sFilter)
+	
+	'F.Data.DataTable.Compute("dtSOLns", "SUM(QTY_ORDERED)", V.Local.sFilter, V.Local.fTtlQty)
+	F.Data.DataTable.Compute("dtSOLns", "MAX(QTY_ORDERED)", V.Local.sFilter, V.Local.fTtlQty)
+	F.Data.DataTable.Compute("dtSOLns", "SUM(QTY_SHIPPED)", V.Local.sFilter, V.Local.fTtlShipped)
+	F.Intrinsic.Math.Sub(V.Local.fTtlQty, V.Local.fTtlShipped, V.Local.fNeedsShip)
+	
+	F.Intrinsic.String.RPad(V.DataTable.dtByParts(V.Local.iParts).PART!FieldValTrim, " ", 20, V.Local.sTemp)
+	F.Intrinsic.String.Left(V.Local.sTemp, 17, V.Local.sPart)
+	F.Intrinsic.String.Right(V.Local.sTemp, 3, V.Local.sRev)
+	
+	F.Intrinsic.String.Build("{0} {1}", V.DataTable.dtByParts(V.Local.iParts).DESCR1!FieldValTrim, V.DataTable.dtByParts(V.Local.iParts).DESCR2!FieldValTrim, V.Local.sDesc)
+	
+	F.Data.DataTable.AddRow("dtDisplay", "PART", V.Local.sPart, "REV", V.Local.sRev, "TOTAL_QTY", V.Local.fTtlQty, "DESCR", V.Local.sDesc, "BAL_TO_SHIP", V.Local.fNeedsShip, "FULLPART", V.DataTable.dtByParts(V.Local.iParts).PART!FieldValTrim, "PART_SEQ", "0")
+	V.Local.iSequence.Set(1)
+	
+	'We are going to create a dataview from the BOL information to capture the crate information
+	F.Data.DataView.Create("dtPacks", "dvPackPart", 22, V.Local.sFilter, "CONTAINER ASC, CRATE ASC")
+	
+	'Now we process the shipments for that part. We need to fill in the quantity in the crate for the shipent AND the crate number. If the value is already filled in for that container/part, we need to add a new row with QTY-Order and Part Description filled in with a -.
+	
+	'At this point we have 1 row with the given part. If we make a dataview, we can keep track of what rows we need to fill in for the shipments
+	F.Intrinsic.String.Build("[FULLPART] = '{0}'", V.DataTable.dtByParts(V.Local.iParts).PART!FieldValTrim, V.Local.sFilter)
+	F.Data.DataView.Create("dtDisplay", "dvPartShips", 22, V.Local.sFilter, "")
+	Function.Intrinsic.Debug.Stop
+	
+	'We loop through that dataview to fill in the info in the display table dataview.. The initial index of the dataview should be zero, since there is only one row at first, but as we add more, we may require additional rows to add..
+	F.Intrinsic.Control.For(V.Local.iShip, 0, V.DataView.dtPacks!dvPackPart.RowCount--, 1)
+		
+		'Build the columns name..
+		V.Local.sContainer.Set(V.DataView.dtPacks!dvPackPart(V.Local.iShip).CONTAINER!FieldValTrim)
+		V.Local.sRowNo.Set(V.Dictionary.dicCols![V.Local.sContainer.Trim])
+		
+		F.Intrinsic.Control.If(V.Local.sRowNo, =, "")
+			'If no container is associated with the row, we put it in the lost info
+			V.Local.sColumnQTY.Set("LOSTQTY")
+			V.Local.sColumnCRATE.Set("LOSTCRATE")
+			
+		F.Intrinsic.Control.Else
+			F.Intrinsic.String.Build("{0}-qty", V.Local.sRowNo, V.Local.sColumnQTY)
+			F.Intrinsic.String.Build("{0}-crate", V.Local.sRowNo, V.Local.sColumnCRATE)
+			
+		F.Intrinsic.Control.EndIf
+		
+		'The iRow variable will have the dataview line that we are looking to fill. The variable iMax will have the max value of dataview columns. 
+		'The goal is to find a place for the crate/quantity coming in from the BOL_PACK_DETAIL. 
+		'Since sometimes the same shipment will have multiple crates, we want to add a line with the additional crates if all available lines are filled in.
+		V.Local.bCheck.Set(False)
+		V.Local.sTemp.Redim(0,0)
+		V.Local.iRow.Set(0)
+		
+		F.Intrinsic.Control.DoUntil(V.Local.bCheck, =, True)
+			V.Local.sTemp.Set(V.DataView.dtDisplay!dvPartShips(V.Local.iRow).[V.Local.sColumnCRATE]!FieldValTrim)
+			
+			F.Intrinsic.Control.If(V.DataView.dtPacks!dvPackPart(V.Local.iShip).CRATE!FieldValTrim, <>, "")
+				V.Local.sCrate.Set(V.DataView.dtPacks!dvPackPart(V.Local.iShip).CRATE!FieldValLong)
+			F.Intrinsic.Control.Else
+				V.Local.sCrate.Set("")
+			F.Intrinsic.Control.EndIf
+			
+			
+			F.Intrinsic.Control.If(V.Local.sTemp, =, "")
+				'We found a place for it
+				F.Data.DataView.SetValue("dtDisplay", "dvPartShips", V.Local.iRow, V.Local.sColumnQTY, V.DataView.dtPacks!dvPackPart(V.Local.iShip).Qty!FieldValFloat, V.Local.sColumnCRATE, V.Local.sCrate)
+				V.Local.bCheck.Set(True)
+			F.Intrinsic.Control.ElseIf(V.Local.iRow, =, V.Local.iMax)
+				'We need to check to see if we got to the end. If we did, we add a new line and exit the loop. Otherwise we add one to the row
+				F.Data.DataTable.AddRow("dtDisplay", "PART", V.Local.sPart, "REV", V.Local.sRev, "TOTAL_QTY", "-", "DESCR", "-", "BAL_TO_SHIP", "-", V.Local.sColumnQTY, V.DataView.dtPacks!dvPackPart(V.Local.iShip).Qty!FieldValFloat, V.Local.sColumnCRATE, V.Local.sCrate, "FULLPART", V.DataTable.dtByParts(V.Local.iParts).PART!FieldValTrim, "PART_SEQ", V.Local.iSequence)
+				F.Intrinsic.Math.Add(V.Local.iSequence, 1, V.Local.iSequence)
+				F.Intrinsic.Math.Add(V.Local.iMax, 1, V.Local.iMax)
+				V.Local.bCheck.Set(True)
+			F.Intrinsic.Control.Else
+				F.Intrinsic.Math.Add(V.Local.iRow, 1, V.Local.iRow)
+			F.Intrinsic.Control.EndIf
+		F.Intrinsic.Control.Loop
+		
+	F.Intrinsic.Control.Next(V.Local.iShip)
+	
+	F.Data.DataView.Close("dtDisplay", "dvPartShips")
+	F.Data.DataView.Close("dtPacks", "dvPackPart")
+	
+F.Intrinsic.Control.Next(V.Local.iParts)
+
+F.Intrinsic.UI.CloseWaitDialog
+
+F.ODBC.Connection!conx.Close
+
+F.Intrinsic.Control.CallSub(SOGridProp)
+
+Gui.F_Proj..Show
+
+F.Intrinsic.Control.Catch
+F.Intrinsic.Control.CallSub(Error, "Subroutine", V.Ambient.CurrentSubroutine, "ErrorDesc", V.Ambient.ErrorDescription, "ErrorNo", V.Ambient.ErrorNumber)
+F.Intrinsic.Control.EndTry
+Program.Sub.GatherBOLinfo.End
+
+Program.Sub.PDFExport.Start
+F.Intrinsic.Control.Try
+V.Local.sSql.Declare(String, "")
+V.Local.sShip.Declare(String, "")
+V.Local.sCol1.Declare(String, "")
+V.Local.sCol2.Declare(String, "")
+V.Local.sCols.Declare(String, "")
+V.Local.sMerge.Declare(String, "")
+V.Local.sTypes.Declare(String, "")
+V.Local.sFilter.Declare(String, "")
+V.Local.sDateShip.Declare(String, "")
+V.Local.sShipNo.Declare(String, "")
+V.Local.sWaybill.Declare(String, "")
+V.Local.sCarrier.Declare(String, "")
+V.Local.sContainer.Declare(String, "")
+V.Local.sTracking.Declare(String, "")
+V.Local.sCustNo.Declare(String, "")
+V.Local.sCustName.Declare(String, "")
+V.Local.sFields.Declare(String, "")
+V.Local.sTemp.Declare(String, "")
+V.Local.dShipDate.Declare(Date, "01/01/2000")
+V.Local.iBIRunID.Declare(Long, 0)
+V.Local.iReportID.Declare(Long, 0)
+V.Local.iLogID.Declare(Long, 0)
+V.Local.iLoop.Declare(Long, 0)
+V.Local.iLimit.Declare(Long, 0)
+V.Local.iShip.Declare(Long, 0)
+V.Local.iRow.Declare(Long, 0)
+V.Local.iRowPrime.Declare(Long, 0)
+V.Local.iPage.Declare(Long, 0)
+V.Local.iStart.Declare(Long, 0)
+V.Local.iSubLoop.Declare(Long, 0)
+V.Local.iIndex.Declare(Long, 0)
+V.Local.iReturn.Declare(Long, 0)
+V.Local.fTemp.Declare(Float, 0.00)
+
+F.ODBC.Connection!conx.OpenCompanyConnection
+
+'Lets remove the BI information from the custom tables for the current terminal:
+F.Intrinsic.String.Build("Delete from GCG_6209_BI_SHIP_HED where TERMINAL_NO = '{0}'", V.Caller.Terminal, V.Local.sSql)
+F.ODBC.Connection!conx.Execute(V.Local.sSql)
+
+F.Intrinsic.String.Build("Delete from GCG_6209_BI_SHIP_LNS where TERMINAL_NO = '{0}'", V.Caller.Terminal, V.Local.sSql)
+F.ODBC.Connection!conx.Execute(V.Local.sSql)
+
+F.Intrinsic.String.Build("Delete from GCG_6209_BI_ORD_INFO where TERMINAL_NO = '{0}'", V.Caller.Terminal, V.Local.sSql)
+F.ODBC.Connection!conx.Execute(V.Local.sSql)
+
+'The export to PDF will save the information to pervasive tables and call a crystal report to grab that data and print it.
+F.Global.BI.GetRunID(V.Local.iBIRunID)
+
+F.Global.BI.GetIDFromName("GCG_6209_SHIP_LIST.rpt",V.Local.iReportID)
+
+F.Global.BI.StartLogging(V.Local.iBIRunID, V.Local.iReportID, 0, "", V.Local.iLogid)
+
+'Since we just ran queries to delete the data from the tables, the queries below should return an empty table.
+
+'A little overview about the structure of the tables and how they help with the structure of the report:
+'Both the header and the lines table have a column SHIP_PAGE, which will determine what page the entry should be printed on
+'In the header, the SHIP_NO value will have the value of the shipment in regards to the entire order. That is, the first page should have values 1-10 in SHIP_NO, second page should have 11-20, etc.
+'In The Header, the SHIP_COLN is going to be the value of the order of the column in the current page. That is, for any given page, the value in SHIP_COLN should be 1-10
+'This is then matched in the LINES table with the column names. The values under SHIP_COLN N for the page will be the values in SHIP_N_QTY and SHIP_N_CRATE where N is in 1-10
+'Example, for any page in the header, the first column will display the values in the row corresponding to SHIP_COLN 1, and the value in the columns under this header will be SHIP_1_QTY and SHIP_1_CRATE
+F.Intrinsic.String.Build("Select ORDER_NO, SHIP_PAGE, SHIP_COLN, SHIP_NO, BOL_DATE, BOL_FORMAT_DATE, BOL_NO, CARRIER_CODE, CONTAINER_NO, TRACKING_NO, USER_NO, TERMINAL_NO, BI_RUN_ID, REPT_ID from GCG_6209_BI_SHIP_HD where TERMINAL_NO = '{0}'", V.Caller.Terminal, V.Local.sSql)
+'F.Data.DataTable.CreateFromSQL("dtBIHead", "conx", V.Local.sSql, True)
+
+'The inverted stuff
+F.Intrinsic.String.Build("Select ORDER_NO, SHIP_PAGE, LINE_TYPE, LINE_LABEL, SHIP_1, SHIP_2, SHIP_3, SHIP_4, SHIP_5, SHIP_6, SHIP_7, SHIP_8, SHIP_9, SHIP_10, USER_NO, TERMINAL_NO, BI_RUN_ID, REPT_ID from GCG_6209_BI_SHIP_HED where TERMINAL_NO = '{0}'", V.Caller.Terminal, V.Local.sSql)
+F.Data.DataTable.CreateFromSQL("dtBIHead", "conx", V.Local.sSql, True)
+
+F.Intrinsic.String.Build("Select ORDER_NO, PART_NO, PART_REV, PART_SEQ, ORDER_QTY, PART_DESC, SHIP_PAGE, SHIP_1_QTY, SHIP_1_CRATE, SHIP_2_QTY, SHIP_2_CRATE, SHIP_3_QTY, SHIP_3_CRATE, SHIP_4_QTY, SHIP_4_CRATE, SHIP_5_QTY, SHIP_5_CRATE, SHIP_6_QTY, SHIP_6_CRATE, SHIP_7_QTY, SHIP_7_CRATE, SHIP_8_QTY, SHIP_8_CRATE, SHIP_9_QTY, SHIP_9_CRATE, SHIP_10_QTY, SHIP_10_CRATE, BALANCE_TO_SHIP, USER_NO, TERMINAL_NO, BI_RUN_ID, REPT_ID from GCG_6209_BI_SHIP_LNS where TERMINAL_NO = '{0}'", V.Caller.Terminal, V.Local.sSql)
+F.Data.DataTable.CreateFromSQL("dtBILines", "conx", V.Local.sSql, True)
+
+'The customer requested that only ten shipments get printed per page, so we have to re-organize the data so that it is stored ten shipments at a time..
+F.Intrinsic.Math.Div(V.Global.iTotalShipments, 10, V.Local.fTemp)
+F.Intrinsic.Math.Floor(V.Local.fTemp, V.Local.iLimit)
+
+V.Local.iRow.Set(0)
+V.Local.iRowPrime.Set(0)
+
+'iLimit (+1) defines the number of 'pages' we are going to have
+F.Intrinsic.Control.For(V.Local.iLoop, 0, V.Local.iLimit, 1)
+	
+	'Test
+	F.Intrinsic.Math.Add(V.Local.iLoop, 1, V.Local.iPage)
+	F.Intrinsic.Math.Mult(V.Local.iPage, 10, V.Local.iShip)
+	F.Intrinsic.Math.Add(V.Local.iShip, -10, V.Local.iStart)
+	F.Intrinsic.Math.Add(V.Local.iShip, -1, V.Local.iShip)
+	
+	V.Local.sShipNo.Redim(0,9)
+	V.Local.sDateShip.Redim(0,9)
+	V.Local.sWaybill.Redim(0,9)
+	V.Local.sCarrier.Redim(0,9)
+	V.Local.sContainer.Redim(0,9)
+	V.Local.sTracking.Redim(0,9)
+	
+	'What we do here, if the value in iShip is greater than the total number of rows, we gotta figure out how many rows we got left, and that is the amount of columns to fill in that last row
+	V.Local.iIndex.Set(0)
+		
+	F.Intrinsic.Control.For(V.Local.iSubLoop, V.Local.iStart, V.Local.iShip, 1)
+		F.Intrinsic.Math.Add(V.Local.iRowPrime, 1, V.Local.iRowPrime)
+		F.Intrinsic.Control.If(V.Local.iSubLoop, <=, V.DataTable.dtKey.RowCount--)
+			F.Intrinsic.String.Build("Shipment #{0}", V.Local.iRowPrime, V.Local.sTemp)
+			V.Local.sShipNo(V.Local.iIndex).Set(V.Local.sTemp)
+			V.Local.sDateShip(V.Local.iIndex).Set(V.DataTable.dtKey(V.Local.iSubLoop).BOL_Format_Date!FieldValTrim)
+			V.Local.sWaybill(V.Local.iIndex).Set(V.DataTable.dtKey(V.Local.iSubLoop).BOL_NO!FieldValTrim)
+			V.Local.sCarrier(V.Local.iIndex).Set(V.DataTable.dtKey(V.Local.iSubLoop).CARRIER_CODE!FieldValTrim)
+			V.Local.sContainer(V.Local.iIndex).Set(V.DataTable.dtKey(V.Local.iSubLoop).CONTAINER_NO!FieldValTrim)
+			V.Local.sTracking(V.Local.iIndex).Set(V.DataTable.dtKey(V.Local.iSubLoop).TRACKING_NO!FieldValTrim)
+			
+		F.Intrinsic.Control.Else
+			V.Local.sShipNo(V.Local.iIndex).Set("")
+			V.Local.sDateShip(V.Local.iIndex).Set("")
+			V.Local.sWaybill(V.Local.iIndex).Set("")
+			V.Local.sCarrier(V.Local.iIndex).Set("")
+			V.Local.sContainer(V.Local.iIndex).Set("")
+			V.Local.sTracking(V.Local.iIndex).Set("")
+			
+		F.Intrinsic.Control.EndIf
+		F.Intrinsic.Math.Add(V.Local.iIndex, 1, V.Local.iIndex)
+	F.Intrinsic.Control.Next(V.Local.iSubLoop)
+	
+	'Now we add the ten rows to the dtBIHead Table
+	
+	F.Data.DataTable.AddRow("dtBIHead", "ORDER_NO", V.Global.sOrderNo, "SHIP_PAGE", V.Local.iPage, "LINE_TYPE", 1, "LINE_LABEL", "", "SHIP_1", V.Local.sShipNo(0).Trim, "SHIP_2", V.Local.sShipNo(1).Trim, "SHIP_3", V.Local.sShipNo(2).Trim, "SHIP_4", V.Local.sShipNo(3).Trim, "SHIP_5", V.Local.sShipNo(4).Trim, "SHIP_6", V.Local.sShipNo(5).Trim, "SHIP_7", V.Local.sShipNo(6).Trim, "SHIP_8", V.Local.sShipNo(7).Trim, "SHIP_9", V.Local.sShipNo(8).Trim, "SHIP_10", V.Local.sShipNo(9).Trim, "USER_NO", V.Caller.User, "TERMINAL_NO", V.Caller.Terminal, "BI_RUN_ID", V.Local.iBIRunID, "REPT_ID", V.Local.iReportID)
+	F.Data.DataTable.AddRow("dtBIHead", "ORDER_NO", V.Global.sOrderNo, "SHIP_PAGE", V.Local.iPage, "LINE_TYPE", 2, "LINE_LABEL", "BOL Date:", "SHIP_1", V.Local.sDateShip(0).Trim, "SHIP_2", V.Local.sDateShip(1).Trim, "SHIP_3", V.Local.sDateShip(2).Trim, "SHIP_4", V.Local.sDateShip(3).Trim, "SHIP_5", V.Local.sDateShip(4).Trim, "SHIP_6", V.Local.sDateShip(5).Trim, "SHIP_7", V.Local.sDateShip(6).Trim, "SHIP_8", V.Local.sDateShip(7).Trim, "SHIP_9", V.Local.sDateShip(8).Trim, "SHIP_10", V.Local.sDateShip(9).Trim, "USER_NO", V.Caller.User, "TERMINAL_NO", V.Caller.Terminal, "BI_RUN_ID", V.Local.iBIRunID, "REPT_ID", V.Local.iReportID)
+	F.Data.DataTable.AddRow("dtBIHead", "ORDER_NO", V.Global.sOrderNo, "SHIP_PAGE", V.Local.iPage, "LINE_TYPE", 3, "LINE_LABEL", "BOL #:", "SHIP_1", V.Local.sWaybill(0).Trim, "SHIP_2", V.Local.sWaybill(1).Trim, "SHIP_3", V.Local.sWaybill(2).Trim, "SHIP_4", V.Local.sWaybill(3).Trim, "SHIP_5", V.Local.sWaybill(4).Trim, "SHIP_6", V.Local.sWaybill(5).Trim, "SHIP_7", V.Local.sWaybill(6).Trim, "SHIP_8", V.Local.sWaybill(7).Trim, "SHIP_9", V.Local.sWaybill(8).Trim, "SHIP_10", V.Local.sWaybill(9).Trim, "USER_NO", V.Caller.User, "TERMINAL_NO", V.Caller.Terminal, "BI_RUN_ID", V.Local.iBIRunID, "REPT_ID", V.Local.iReportID)
+	F.Data.DataTable.AddRow("dtBIHead", "ORDER_NO", V.Global.sOrderNo, "SHIP_PAGE", V.Local.iPage, "LINE_TYPE", 4, "LINE_LABEL", "Carrier:", "SHIP_1", V.Local.sCarrier(0).Trim, "SHIP_2", V.Local.sCarrier(1).Trim, "SHIP_3", V.Local.sCarrier(2).Trim, "SHIP_4", V.Local.sCarrier(3).Trim, "SHIP_5", V.Local.sCarrier(4).Trim, "SHIP_6", V.Local.sCarrier(5).Trim, "SHIP_7", V.Local.sCarrier(6).Trim, "SHIP_8", V.Local.sCarrier(7).Trim, "SHIP_9", V.Local.sCarrier(8).Trim, "SHIP_10", V.Local.sCarrier(9).Trim, "USER_NO", V.Caller.User, "TERMINAL_NO", V.Caller.Terminal, "BI_RUN_ID", V.Local.iBIRunID, "REPT_ID", V.Local.iReportID)
+	F.Data.DataTable.AddRow("dtBIHead", "ORDER_NO", V.Global.sOrderNo, "SHIP_PAGE", V.Local.iPage, "LINE_TYPE", 5, "LINE_LABEL", "Container #:", "SHIP_1", V.Local.sContainer(0).Trim, "SHIP_2", V.Local.sContainer(1).Trim, "SHIP_3", V.Local.sContainer(2).Trim, "SHIP_4", V.Local.sContainer(3).Trim, "SHIP_5", V.Local.sContainer(4).Trim, "SHIP_6", V.Local.sContainer(5).Trim, "SHIP_7", V.Local.sContainer(6).Trim, "SHIP_8", V.Local.sContainer(7).Trim, "SHIP_9", V.Local.sContainer(8).Trim, "SHIP_10", V.Local.sContainer(9).Trim, "USER_NO", V.Caller.User, "TERMINAL_NO", V.Caller.Terminal, "BI_RUN_ID", V.Local.iBIRunID, "REPT_ID", V.Local.iReportID)
+	F.Data.DataTable.AddRow("dtBIHead", "ORDER_NO", V.Global.sOrderNo, "SHIP_PAGE", V.Local.iPage, "LINE_TYPE", 6, "LINE_LABEL", "Tracking #:", "SHIP_1", V.Local.sTracking(0).Trim, "SHIP_2", V.Local.sTracking(1).Trim, "SHIP_3", V.Local.sTracking(2).Trim, "SHIP_4", V.Local.sTracking(3).Trim, "SHIP_5", V.Local.sTracking(4).Trim, "SHIP_6", V.Local.sTracking(5).Trim, "SHIP_7", V.Local.sTracking(6).Trim, "SHIP_8", V.Local.sTracking(7).Trim, "SHIP_9", V.Local.sTracking(8).Trim, "SHIP_10", V.Local.sTracking(9).Trim, "USER_NO", V.Caller.User, "TERMINAL_NO", V.Caller.Terminal, "BI_RUN_ID", V.Local.iBIRunID, "REPT_ID", V.Local.iReportID)
+		
+	V.Local.sCols.Set("PART*!*REV*!*PART_SEQ*!*TOTAL_QTY*!*DESCR*!*BAL_TO_SHIP")
+	V.Local.sTypes.Set("String*!*String*!*Long*!*String*!*String*!*String")
+	V.Local.sFields.Set("PART_NO*!*PART_REV*!*PART_SEQ*!*ORDER_QTY*!*PART_DESC*!*BALANCE_TO_SHIP")
+	
+	'Capturing the coulmn names, 10 sets of columns at a time, in the main table to save data as needed
+	F.Intrinsic.Control.For(V.Local.iShip, 1, 10, 1)
+'		F.Intrinsic.Math.Add(V.Local.iRow, 1, V.Local.iRow)
+		F.Intrinsic.Control.If(V.Local.iRow, <=, V.DataView.dtCols!dvNoBlank.RowCount--)
+			
+			V.Local.sShip.Set(V.DataView.dtCols!dvNoBlank(V.Local.iRow).ROW_NO!FieldValTrim)
+			
+			F.Intrinsic.String.Build("{0}-qty", V.Local.sShip.Trim, V.Local.sCol1)
+			F.Intrinsic.String.Build("{0}-crate", V.Local.sShip.Trim, V.Local.sCol2)
+			
+			F.Intrinsic.String.Build("{0}*!*{1}*!*{2}", V.Local.sCols, V.Local.sCol1, V.Local.sCol2, V.Local.sCols)
+			F.Intrinsic.String.Build("{0}*!*String*!*String", V.Local.sTypes, V.Local.sTypes)
+			F.Intrinsic.String.Build("{0}*!*SHIP_{1}_QTY*!*SHIP_{1}_CRATE", V.Local.sFields, V.Local.iShip, V.Local.sFields)
+			
+'			F.Intrinsic.String.Build("[SHIP_NO] = '{0}'", V.Local.iRow, V.Local.sFilter)
+			
+			Function.Intrinsic.Debug.Stop
+'			
+'			F.Data.DataView.Create("dtKey", "dvFiller", 22, V.Local.sFilter, "")
+'			F.Intrinsic.Control.If(V.DataView.dtKey!dvFiller.RowCount, >, 0)
+'				V.Local.dShipDate.Set(V.DataView.dtKey!dvFiller(0).BOL_Date!FieldValDate)
+'				V.Local.sDateShip.Set(V.DataView.dtKey!dvFiller(0).BOL_Format_Date!FieldValTrim)
+'				V.Local.sWaybill.Set(V.DataView.dtKey!dvFiller(0).BOL_NO!FieldValTrim)
+'				V.Local.sCarrier.Set(V.DataView.dtKey!dvFiller(0).CARRIER_CODE!FieldValTrim)
+'				V.Local.sContainer.Set(V.DataView.dtKey!dvFiller(0).CONTAINER_NO!FieldValTrim)
+'				V.Local.sTracking.Set(V.DataView.dtKey!dvFiller(0).TRACKING_NO!FieldValTrim)
+'				
+'			F.Intrinsic.Control.Else
+'				V.Local.dShipDate.Set("01/01/2000")
+'				V.Local.sDateShip.Set("")
+'				V.Local.sWaybill.Set("")
+'				V.Local.sCarrier.Set("")
+'				V.Local.sContainer.Set("")
+'				V.Local.sTracking.Set("")
+'				
+'			F.Intrinsic.Control.EndIf
+			
+			'F.Data.DataTable.AddRow("dtBIHead", "ORDER_NO", V.Global.sOrderNo, "SHIP_PAGE", V.Local.iPage, "SHIP_COLN", V.Local.iShip, "SHIP_NO", V.Local.iRow, "BOL_DATE", V.Local.dShipDate, "BOL_FORMAT_DATE", V.Local.sDateShip, "BOL_NO", V.Local.sWaybill, "CARRIER_CODE", V.Local.sCarrier, "CONTAINER_NO", V.Local.scontainer, "TRACKING_NO", V.Local.sTracking, "USER_NO",  V.Caller.User, "TERMINAL_NO", V.Caller.User, "BI_RUN_ID", V.Local.iBIRunID, "REPT_ID", V.Local.iReportID)
+			
+		F.Intrinsic.Control.EndIf
+		
+		F.Intrinsic.Math.Add(V.Local.iRow, 1, V.Local.iRow)
+	F.Intrinsic.Control.Next(V.Local.iShip)
+	
+	'Now we use the columns to create a datatablefromdataview restricting the needed columns
+	F.Data.DataView.Create("dtDisplay", "dvPrint", 22)
+	F.Data.DataView.ToString("dtDisplay", "dvPrint", V.Local.sCols, "@!@", "#$#", V.Local.sMerge)
+	F.Data.DataView.Close("dtDisplay", "dvPrint")
+	
+	F.Data.DataTable.CreateFromString("dtMerge", V.Local.sMerge, V.Local.sFields, V.Local.sTypes, "@!@", "#$#", True)
+	'We add the page field
+	F.Data.DataTable.AddColumn("dtMerge", "SHIP_PAGE", "Long", V.Local.iPage)
+	
+	F.Data.DataTable.Merge("dtMerge", "dtBILines", True, 1)
+	
+	F.Data.DataTable.Close("dtMerge")
+	
+F.Intrinsic.Control.Next(V.Local.iLoop)
+
+F.Data.DataTable.SetValue("dtBILines", -1, "USER_NO", V.Caller.User, "TERMINAL_NO", V.Caller.Terminal, "BI_RUN_ID", V.Local.iBIRunID, "REPT_ID", V.Local.iReportID, "ORDER_NO", V.Global.sOrderNo)
+
+'Now we save the data to the tables and call the report
+F.Intrinsic.String.Build("Select TOP 1 CUSTOMER from V_ORDER_HEADER where ORDER_NO = '{0}'", V.Global.sOrderNo, V.Local.sSql)
+F.ODBC.Connection!conx.ExecuteAndReturn(V.Local.sSql, V.Local.sCustNo)
+
+F.Intrinsic.Control.If(V.Local.sCustNo.Trim, <>, "")
+	
+	F.Intrinsic.String.Build("Select Top 1 NAME_CUSTOMER, COUNTRY from V_CUSTOMER_MASTER where CUSTOMER = '{0}'", V.Local.sCustNo.Trim, V.Local.sSql)
+	F.ODBC.Connection!conx.ExecuteAndReturn(V.Local.sSql, V.Local.sCustName)
+	
+	F.Intrinsic.String.Replace(V.Local.sCustName, "*!*", ", ", V.Local.sCustName)
+	
+F.Intrinsic.Control.Else
+	V.Local.sCustName.Set("")
+F.Intrinsic.Control.EndIf
+
+'The insert values are: ORDER_NO, CUSTOMER_NO, CUSTOMER_NAME, COMP_NAME, COMP_PHONE, USER_NO, TERMINAL_NO, BI_RUN_ID, REPT_ID
+F.Intrinsic.String.Build("Insert into GCG_6209_BI_ORD_INFO values ('{0}', '{1}', '{2}', '{3}', '{4}', '{5}', '{6}', '{7}', '{8}')", V.Global.sOrderNo, V.Local.sCustNo.Trim, V.Local.sCustName.Trim, "CRAVO EQUIPMENT LTD", "1-519-759-8226 ext 236", V.Caller.User, V.Caller.Terminal, V.Local.iBIRunID, V.Local.iReportID, V.Local.sSql)
+
+F.ODBC.Connection!conx.Execute(V.Local.sSql)
+
+F.Data.DataTable.SaveToDB("dtBIHead", "conx", "GCG_6209_BI_SHIP_HED", "", 128)
+F.Data.DataTable.SaveToDB("dtBILines", "conx", "GCG_6209_BI_SHIP_LNS", "", 128)
+
+F.Global.BI.StopLogging(V.Local.iLogID)
+
+F.Global.BI.RunReportPreProcessor(V.Local.iBIRunID, V.Local.iLogID, "Terminal", V.Caller.Terminal.Trim, "", -1, True, "", -1, "", -1, "", "", V.Local.iReturn)
+
+F.Data.DataTable.Close("dtBIHead")
+F.Data.DataTable.Close("dtBILines")
+
+
+F.ODBC.Connection!conx.Close
+
+F.Intrinsic.Control.Catch
+F.Intrinsic.Control.CallSub(Error, "Subroutine", V.Ambient.CurrentSubroutine, "ErrorDesc", V.Ambient.ErrorDescription, "ErrorNo", V.Ambient.ErrorNumber)
+F.Intrinsic.Control.EndTry
+Program.Sub.PDFExport.End
